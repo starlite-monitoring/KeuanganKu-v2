@@ -293,7 +293,17 @@ html, body { margin: 0; padding: 0; background: #F5F7FB; min-height: 100vh; }
 <div id="root"></div>
 
 <script>
-import { jsxDEV as _jsxDEV, Fragment as _Fragment } from "react/jsx-dev-runtime";
+function _jsxDEV(type, config, maybeKey) {
+  var props = config || {};
+  if (maybeKey !== undefined) { props = Object.assign({}, props, { key: maybeKey }); }
+  var children = props.children;
+  var rest = {};
+  for (var k in props) { if (k !== "children") rest[k] = props[k]; }
+  if (children === undefined) return React.createElement(type, rest);
+  if (Array.isArray(children)) return React.createElement.apply(React, [type, rest].concat(children));
+  return React.createElement(type, rest, children);
+}
+var _Fragment = React.Fragment;
 const {
   useState,
   useEffect,
