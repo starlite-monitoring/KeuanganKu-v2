@@ -1135,10 +1135,6 @@ function computeWalletBalance(wallet, transactions) {
   }
   return bal;
 }
-function transactionsForUser(transactions, currentUser) {
-  if (!currentUser) return transactions || [];
-  return (transactions || []).filter(t => t.enteredById === currentUser.id);
-}
 function isInPeriod(isoDate, period, customRange) {
   const d = new Date(isoDate + "T00:00:00");
   const now = new Date();
@@ -1802,7 +1798,7 @@ function SetupWizard({
           textAlign: "center",
           marginBottom: 24
         },
-        children: "Buat 2 profil akun keluarga. Setiap akun memiliki transaksi sendiri, sehingga pengeluaran Dimas dan Nursanti tidak tercampur."
+        children: "Buat 2 akun keluarga (Dimas Setiyanto & Nursanti). Semua orang mencatat ke satu kas bersama, dan setiap transaksi otomatis tercatat siapa yang menginput."
       }, void 0, false), /*#__PURE__*/_jsxDEV("button", {
         className: "kk-btn primary full",
         onClick: next,
@@ -2382,7 +2378,6 @@ function MainApp({
       budgets: data.budgets,
       categories: data.categories,
       transactions: data.transactions,
-      currentUser: currentUser,
       onBack: () => setSubView(null),
       onChange: setNotifSettings
     }, void 0, false), subView === "anggota" && /*#__PURE__*/_jsxDEV(MembersView, {
@@ -2416,7 +2411,6 @@ function MainApp({
         }, void 0, false), activeTab === "transaksi" && /*#__PURE__*/_jsxDEV(TransaksiView, {
           data: data,
           profiles: profiles,
-          currentUser: currentUser,
           onEdit: tx => {
             setEditingTx(tx);
             setShowAddModal(true);
@@ -2434,11 +2428,9 @@ function MainApp({
           })
         }, void 0, false), activeTab === "laporan" && /*#__PURE__*/_jsxDEV(LaporanView, {
           data: data,
-          profiles: profiles,
-          currentUser: currentUser
+          profiles: profiles
         }, void 0, false), activeTab === "budget" && /*#__PURE__*/_jsxDEV(BudgetView, {
           data: data,
-          currentUser: currentUser,
           onUpsert: upsertBudget,
           onDelete: id => setConfirmState({
             open: true,
@@ -2594,13 +2586,12 @@ function DashboardView({
     categories,
     budgets
   } = data;
-  const userTransactions = useMemo(() => transactionsForUser(transactions, currentUser), [transactions, currentUser]);
   const totalSaldo = useMemo(() => wallets.reduce((s, w) => s + computeWalletBalance(w, transactions), 0), [wallets, transactions]);
   const now = new Date();
-  const monthTx = useMemo(() => userTransactions.filter(t => {
+  const monthTx = useMemo(() => transactions.filter(t => {
     const d = new Date(t.date + "T00:00:00");
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  }), [userTransactions]);
+  }), [transactions]);
   const pendapatanBulan = useMemo(() => monthTx.filter(t => t.type === "pendapatan").reduce((s, t) => s + t.amount, 0), [monthTx]);
   const pengeluaranBulan = useMemo(() => monthTx.filter(t => t.type === "pengeluaran").reduce((s, t) => s + t.amount, 0), [monthTx]);
   const sisaSaldo = pendapatanBulan - pengeluaranBulan;
@@ -2608,8 +2599,8 @@ function DashboardView({
     const arr = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const inc = userTransactions.filter(t => t.type === "pendapatan" && new Date(t.date + "T00:00:00").getFullYear() === d.getFullYear() && new Date(t.date + "T00:00:00").getMonth() === d.getMonth()).reduce((s, t) => s + t.amount, 0);
-      const exp = userTransactions.filter(t => t.type === "pengeluaran" && new Date(t.date + "T00:00:00").getFullYear() === d.getFullYear() && new Date(t.date + "T00:00:00").getMonth() === d.getMonth()).reduce((s, t) => s + t.amount, 0);
+      const inc = transactions.filter(t => t.type === "pendapatan" && new Date(t.date + "T00:00:00").getFullYear() === d.getFullYear() && new Date(t.date + "T00:00:00").getMonth() === d.getMonth()).reduce((s, t) => s + t.amount, 0);
+      const exp = transactions.filter(t => t.type === "pengeluaran" && new Date(t.date + "T00:00:00").getFullYear() === d.getFullYear() && new Date(t.date + "T00:00:00").getMonth() === d.getMonth()).reduce((s, t) => s + t.amount, 0);
       arr.push({
         label: MONTHS_SHORT_ID[d.getMonth()],
         Pendapatan: inc,
@@ -2633,7 +2624,7 @@ function DashboardView({
       };
     }).sort((a, b) => b.value - a.value);
   }, [monthTx, categories]);
-  const recentTx = useMemo(() => [...userTransactions].sort((a, b) => new Date(b.date) - new Date(a.date) || b.createdAt - a.createdAt).slice(0, 5), [userTransactions]);
+  const recentTx = useMemo(() => [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date) || b.createdAt - a.createdAt).slice(0, 5), [transactions]);
   const budgetAlerts = useMemo(() => {
     const alerts = [];
     budgets.filter(b => b.month === now.getMonth() && b.year === now.getFullYear()).forEach(b => {
@@ -2669,10 +2660,6 @@ function DashboardView({
         },
         children: currentUser.avatar
       }, void 0, false)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-info-note",
-      style: { marginBottom: 12 },
-      children: ["Akun aktif: ", currentUser.name, " · Pengeluaran & laporan hanya menampilkan transaksi akun ini."]
     }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
       className: "kk-balance-card",
       children: [/*#__PURE__*/_jsxDEV("div", {
@@ -2895,7 +2882,6 @@ function DashboardView({
 function TransaksiView({
   data,
   profiles,
-  currentUser,
   onEdit,
   onDelete
 }) {
@@ -2914,7 +2900,7 @@ function TransaksiView({
   const [sortDir, setSortDir] = useState("desc");
   const [visibleCount, setVisibleCount] = useState(15);
   const filtered = useMemo(() => {
-    let arr = transactionsForUser(transactions, currentUser);
+    let arr = [...transactions];
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       arr = arr.filter(t => (t.description || "").toLowerCase().includes(q) || (t.note || "").toLowerCase().includes(q));
@@ -2926,7 +2912,7 @@ function TransaksiView({
     if (filterEnd) arr = arr.filter(t => t.date <= filterEnd);
     arr.sort((a, b) => sortDir === "desc" ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date));
     return arr;
-  }, [transactions, currentUser, search, filterType, filterCategory, filterMember, filterStart, filterEnd, sortDir]);
+  }, [transactions, search, filterType, filterCategory, filterMember, filterStart, filterEnd, sortDir]);
   const visible = filtered.slice(0, visibleCount);
   const activeFilterCount = (filterType !== "all" ? 1 : 0) + (filterCategory !== "all" ? 1 : 0) + (filterMember !== "all" ? 1 : 0) + (filterStart || filterEnd ? 1 : 0);
   const grouped = useMemo(() => {
@@ -3757,8 +3743,7 @@ function RekeningView({
 
 function LaporanView({
   data,
-  profiles,
-  currentUser
+  profiles
 }) {
   const {
     transactions,
@@ -3769,8 +3754,13 @@ function LaporanView({
     start: "",
     end: ""
   });
+  const [filterMember, setFilterMember] = useState("all");
   const [showExport, setShowExport] = useState(false);
-  const filtered = useMemo(() => transactionsForUser(transactions, currentUser).filter(t => isInPeriod(t.date, period, customRange)), [transactions, currentUser, period, customRange]);
+  const filtered = useMemo(() => {
+    let arr = transactions.filter(t => isInPeriod(t.date, period, customRange));
+    if (filterMember !== "all") arr = arr.filter(t => t.enteredById === filterMember);
+    return arr;
+  }, [transactions, period, customRange, filterMember]);
   const totalPendapatan = filtered.filter(t => t.type === "pendapatan").reduce((s, t) => s + t.amount, 0);
   const totalPengeluaran = filtered.filter(t => t.type === "pengeluaran").reduce((s, t) => s + t.amount, 0);
   const selisih = totalPendapatan - totalPengeluaran;
@@ -3822,6 +3812,7 @@ function LaporanView({
     year: "Tahun ini",
     custom: "Custom"
   }[period];
+  const memberLabel = filterMember === "all" ? "Semua" : profiles.find(p => p.id === filterMember)?.name || "Semua";
   const exportCSV = () => {
     const header = ["Tanggal", "Jenis", "Kategori", "Deskripsi", "Nominal", "Metode Pembayaran", "Dicatat Oleh", "Catatan"];
     const rows = filtered.map(t => {
@@ -3829,7 +3820,7 @@ function LaporanView({
       return [t.date, t.type, cat?.name || "", t.description || "", t.amount, t.paymentMethod || "", t.enteredByName || "", (t.note || "").replace(/\n/g, " ")];
     });
     const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    downloadBlob("\uFEFF" + csv, `laporan-keuanganku-${periodLabel.replace(/\s/g, "-")}.csv`, "text/csv;charset=utf-8");
+    downloadBlob("\uFEFF" + csv, `laporan-keuanganku-${periodLabel.replace(/\s/g, "-")}-${memberLabel.replace(/\s/g, "-")}.csv`, "text/csv;charset=utf-8");
     setShowExport(false);
   };
   const exportExcel = () => {
@@ -3877,261 +3868,218 @@ function LaporanView({
     setShowExport(false);
     setTimeout(() => window.print(), 200);
   };
-  return /*#__PURE__*/_jsxDEV("div", {
-    className: "kk-page",
-    children: [/*#__PURE__*/_jsxDEV("p", {
-      className: "kk-page-title",
-      children: "Laporan"
-    }, void 0, false), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-chip-row",
-      children: [["today", "Hari ini"], ["week", "Minggu ini"], ["month", "Bulan ini"], ["year", "Tahun ini"], ["custom", "Custom"]].map(([k, l]) => /*#__PURE__*/_jsxDEV("button", {
-        className: `kk-chip ${period === k ? "active" : ""}`,
-        onClick: () => setPeriod(k),
-        children: l
-      }, k, false))
-    }, void 0, false), period === "custom" && /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-row-2",
+  return /*#__PURE__*/React.createElement("div", {
+    className: "kk-page"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-page-title"
+  }, "Laporan"), /*#__PURE__*/React.createElement("div", {
+    className: "kk-chip-row"
+  }, [["today", "Hari ini"], ["week", "Minggu ini"], ["month", "Bulan ini"], ["year", "Tahun ini"], ["custom", "Custom"]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    className: `kk-chip ${period === k ? "active" : ""}`,
+    onClick: () => setPeriod(k)
+  }, l))), period === "custom" && /*#__PURE__*/React.createElement("div", {
+    className: "kk-row-2",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: "kk-input",
+    value: customRange.start,
+    onChange: e => setCustomRange(r => ({
+      ...r,
+      start: e.target.value
+    }))
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: "kk-input",
+    value: customRange.end,
+    onChange: e => setCustomRange(r => ({
+      ...r,
+      end: e.target.value
+    }))
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "kk-field-label"
+  }, "Dicatat oleh"), /*#__PURE__*/React.createElement("select", {
+    className: "kk-select",
+    value: filterMember,
+    onChange: e => setFilterMember(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "all"
+  }, "Semua"), profiles.map(p => /*#__PURE__*/React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, p.avatar, " ", p.name))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-kpi-row",
+    style: {
+      marginTop: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-kpi-card income"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-label"
+  }, "Total Pendapatan"), /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-value"
+  }, formatRupiah(totalPendapatan))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-kpi-card expense"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-label"
+  }, "Total Pengeluaran"), /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-value"
+  }, formatRupiah(totalPengeluaran)))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-kpi-row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-kpi-card full"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-label"
+  }, "Selisih"), /*#__PURE__*/React.createElement("p", {
+    className: `kk-kpi-value ${selisih < 0 ? "neg" : ""}`
+  }, formatRupiah(selisih))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-kpi-card full"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-label"
+  }, "% Pengeluaran"), /*#__PURE__*/React.createElement("p", {
+    className: "kk-kpi-value"
+  }, pctPengeluaran.toFixed(0), "%"))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-card"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-card-title"
+  }, "Tren Harian"), dailySeries.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "📈",
+    title: "Belum ada data"
+  }) : /*#__PURE__*/React.createElement(LineChartSVG, {
+    data: dailySeries,
+    series: [{
+      key: "Pendapatan",
+      color: "var(--kk-success)"
+    }, {
+      key: "Pengeluaran",
+      color: "var(--kk-danger)"
+    }],
+    height: 170
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "kk-legend-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-legend-item"
+  }, /*#__PURE__*/React.createElement("i", {
+    style: {
+      background: "var(--kk-success)"
+    }
+  }), "Pendapatan"), /*#__PURE__*/React.createElement("span", {
+    className: "kk-legend-item"
+  }, /*#__PURE__*/React.createElement("i", {
+    style: {
+      background: "var(--kk-danger)"
+    }
+  }), "Pengeluaran"))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-card"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-card-title"
+  }, "Pengeluaran per Kategori"), categoryBreakdown.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "📊",
+    title: "Belum ada pengeluaran"
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "center",
+      padding: "6px 0"
+    }
+  }, /*#__PURE__*/React.createElement(DonutChartSVG, {
+    data: categoryBreakdown
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-card"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-card-title"
+  }, "Top 5 Kategori Pengeluaran"), top5.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "🏆",
+    title: "Belum ada data"
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "kk-cat-list"
+  }, top5.map((c, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "kk-cat-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "kk-rank"
+  }, i + 1), /*#__PURE__*/React.createElement("span", {
+    className: "kk-cat-name"
+  }, c.icon, " ", c.name), /*#__PURE__*/React.createElement("span", {
+    className: "kk-cat-val"
+  }, formatRupiah(c.value)))))), /*#__PURE__*/React.createElement("div", {
+    className: "kk-card"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "kk-card-title"
+  }, "Pengeluaran per Anggota"), memberBreakdown.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "👥",
+    title: "Belum ada data"
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "kk-cat-list"
+  }, memberBreakdown.map(([name, val], i) => {
+    const p = profiles.find(pr => pr.name === name);
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "kk-cat-row"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "kk-cat-dot",
       style: {
-        marginTop: 10
-      },
-      children: [/*#__PURE__*/_jsxDEV("input", {
-        type: "date",
-        className: "kk-input",
-        value: customRange.start,
-        onChange: e => setCustomRange(r => ({
-          ...r,
-          start: e.target.value
-        }))
-      }, void 0, false), /*#__PURE__*/_jsxDEV("input", {
-        type: "date",
-        className: "kk-input",
-        value: customRange.end,
-        onChange: e => setCustomRange(r => ({
-          ...r,
-          end: e.target.value
-        }))
-      }, void 0, false)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-kpi-row",
-      style: {
-        marginTop: 14
-      },
-      children: [/*#__PURE__*/_jsxDEV("div", {
-        className: "kk-kpi-card income",
-        children: [/*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-label",
-          children: "Total Pendapatan"
-        }, void 0, false), /*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-value",
-          children: formatRupiah(totalPendapatan)
-        }, void 0, false)]
-      }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-        className: "kk-kpi-card expense",
-        children: [/*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-label",
-          children: "Total Pengeluaran"
-        }, void 0, false), /*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-value",
-          children: formatRupiah(totalPengeluaran)
-        }, void 0, false)]
-      }, void 0, true)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-kpi-row",
-      children: [/*#__PURE__*/_jsxDEV("div", {
-        className: "kk-kpi-card full",
-        children: [/*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-label",
-          children: "Selisih"
-        }, void 0, false), /*#__PURE__*/_jsxDEV("p", {
-          className: `kk-kpi-value ${selisih < 0 ? "neg" : ""}`,
-          children: formatRupiah(selisih)
-        }, void 0, false)]
-      }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-        className: "kk-kpi-card full",
-        children: [/*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-label",
-          children: "% Pengeluaran"
-        }, void 0, false), /*#__PURE__*/_jsxDEV("p", {
-          className: "kk-kpi-value",
-          children: [pctPengeluaran.toFixed(0), "%"]
-        }, void 0, true)]
-      }, void 0, true)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-card",
-      children: [/*#__PURE__*/_jsxDEV("p", {
-        className: "kk-card-title",
-        children: "Tren Harian"
-      }, void 0, false), dailySeries.length === 0 ? /*#__PURE__*/_jsxDEV(EmptyState, {
-        icon: "📈",
-        title: "Belum ada data"
-      }, void 0, false) : /*#__PURE__*/_jsxDEV(LineChartSVG, {
-        data: dailySeries,
-        series: [{
-          key: "Pendapatan",
-          color: "var(--kk-success)"
-        }, {
-          key: "Pengeluaran",
-          color: "var(--kk-danger)"
-        }],
-        height: 170
-      }, void 0, false), /*#__PURE__*/_jsxDEV("div", {
-        className: "kk-legend-row",
-        children: [/*#__PURE__*/_jsxDEV("span", {
-          className: "kk-legend-item",
-          children: [/*#__PURE__*/_jsxDEV("i", {
-            style: {
-              background: "var(--kk-success)"
-            }
-          }, void 0, false), "Pendapatan"]
-        }, void 0, true), /*#__PURE__*/_jsxDEV("span", {
-          className: "kk-legend-item",
-          children: [/*#__PURE__*/_jsxDEV("i", {
-            style: {
-              background: "var(--kk-danger)"
-            }
-          }, void 0, false), "Pengeluaran"]
-        }, void 0, true)]
-      }, void 0, true)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-card",
-      children: [/*#__PURE__*/_jsxDEV("p", {
-        className: "kk-card-title",
-        children: "Pengeluaran per Kategori"
-      }, void 0, false), categoryBreakdown.length === 0 ? /*#__PURE__*/_jsxDEV(EmptyState, {
-        icon: "📊",
-        title: "Belum ada pengeluaran"
-      }, void 0, false) : /*#__PURE__*/_jsxDEV("div", {
-        style: {
-          display: "flex",
-          justifyContent: "center",
-          padding: "6px 0"
-        },
-        children: /*#__PURE__*/_jsxDEV(DonutChartSVG, {
-          data: categoryBreakdown
-        }, void 0, false)
-      }, void 0, false)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-card",
-      children: [/*#__PURE__*/_jsxDEV("p", {
-        className: "kk-card-title",
-        children: "Top 5 Kategori Pengeluaran"
-      }, void 0, false), top5.length === 0 ? /*#__PURE__*/_jsxDEV(EmptyState, {
-        icon: "🏆",
-        title: "Belum ada data"
-      }, void 0, false) : /*#__PURE__*/_jsxDEV("div", {
-        className: "kk-cat-list",
-        children: top5.map((c, i) => /*#__PURE__*/_jsxDEV("div", {
-          className: "kk-cat-row",
-          children: [/*#__PURE__*/_jsxDEV("span", {
-            className: "kk-rank",
-            children: i + 1
-          }, void 0, false), /*#__PURE__*/_jsxDEV("span", {
-            className: "kk-cat-name",
-            children: [c.icon, " ", c.name]
-          }, void 0, true), /*#__PURE__*/_jsxDEV("span", {
-            className: "kk-cat-val",
-            children: formatRupiah(c.value)
-          }, void 0, false)]
-        }, i, true))
-      }, void 0, false)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-card",
-      children: [/*#__PURE__*/_jsxDEV("p", {
-        className: "kk-card-title",
-        children: "Pengeluaran per Anggota"
-      }, void 0, false), memberBreakdown.length === 0 ? /*#__PURE__*/_jsxDEV(EmptyState, {
-        icon: "👥",
-        title: "Belum ada data"
-      }, void 0, false) : /*#__PURE__*/_jsxDEV("div", {
-        className: "kk-cat-list",
-        children: memberBreakdown.map(([name, val], i) => {
-          const p = profiles.find(pr => pr.name === name);
-          return /*#__PURE__*/_jsxDEV("div", {
-            className: "kk-cat-row",
-            children: [/*#__PURE__*/_jsxDEV("span", {
-              className: "kk-cat-dot",
-              style: {
-                background: p?.color || "var(--kk-primary)"
-              }
-            }, void 0, false), /*#__PURE__*/_jsxDEV("span", {
-              className: "kk-cat-name",
-              children: [p?.avatar || "👤", " ", name]
-            }, void 0, true), /*#__PURE__*/_jsxDEV("span", {
-              className: "kk-cat-val",
-              children: formatRupiah(val)
-            }, void 0, false)]
-          }, i, true);
-        })
-      }, void 0, false)]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("button", {
-      className: "kk-btn primary full",
-      onClick: () => setShowExport(true),
-      children: [/*#__PURE__*/_jsxDEV(Ic, {
-        name: "Download",
-        size: 16
-      }, void 0, false), " Export Laporan"]
-    }, void 0, true), /*#__PURE__*/_jsxDEV("div", {
-      style: {
-        height: 90
+        background: p?.color || "var(--kk-primary)"
       }
-    }, void 0, false), showExport && /*#__PURE__*/_jsxDEV("div", {
-      className: "kk-overlay",
-      onClick: () => setShowExport(false),
-      children: /*#__PURE__*/_jsxDEV("div", {
-        className: "kk-sheet",
-        onClick: e => e.stopPropagation(),
-        children: [/*#__PURE__*/_jsxDEV("div", {
-          className: "kk-sheet-handle"
-        }, void 0, false), /*#__PURE__*/_jsxDEV("p", {
-          className: "kk-sheet-title",
-          children: ["Export Laporan (", periodLabel, ")"]
-        }, void 0, true), /*#__PURE__*/_jsxDEV("button", {
-          className: "kk-export-opt",
-          onClick: exportExcel,
-          children: [/*#__PURE__*/_jsxDEV(Ic, {
-            name: "FileSpreadsheet",
-            size: 18
-          }, void 0, false), " ", /*#__PURE__*/_jsxDEV("span", {
-            children: "Excel (.xlsx)"
-          }, void 0, false), /*#__PURE__*/_jsxDEV(Ic, {
-            name: "ChevronRight",
-            size: 16
-          }, void 0, false)]
-        }, void 0, true), /*#__PURE__*/_jsxDEV("button", {
-          className: "kk-export-opt",
-          onClick: exportPDF,
-          children: [/*#__PURE__*/_jsxDEV(Ic, {
-            name: "FileDown",
-            size: 18
-          }, void 0, false), " ", /*#__PURE__*/_jsxDEV("span", {
-            children: "PDF (cetak / simpan)"
-          }, void 0, false), /*#__PURE__*/_jsxDEV(Ic, {
-            name: "ChevronRight",
-            size: 16
-          }, void 0, false)]
-        }, void 0, true), /*#__PURE__*/_jsxDEV("button", {
-          className: "kk-export-opt",
-          onClick: exportCSV,
-          children: [/*#__PURE__*/_jsxDEV(Ic, {
-            name: "FileText",
-            size: 18
-          }, void 0, false), " ", /*#__PURE__*/_jsxDEV("span", {
-            children: "CSV"
-          }, void 0, false), /*#__PURE__*/_jsxDEV(Ic, {
-            name: "ChevronRight",
-            size: 16
-          }, void 0, false)]
-        }, void 0, true)]
-      }, void 0, true)
-    }, void 0, false)]
-  }, void 0, true);
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "kk-cat-name"
+    }, p?.avatar || "👤", " ", name), /*#__PURE__*/React.createElement("span", {
+      className: "kk-cat-val"
+    }, formatRupiah(val)));
+  }))), /*#__PURE__*/React.createElement("button", {
+    className: "kk-btn primary full",
+    onClick: () => setShowExport(true)
+  }, /*#__PURE__*/React.createElement(Ic, {
+    name: "Download",
+    size: 16
+  }), " Export Laporan"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 90
+    }
+  }), showExport && /*#__PURE__*/React.createElement("div", {
+    className: "kk-overlay",
+    onClick: () => setShowExport(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-sheet",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "kk-sheet-handle"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "kk-sheet-title"
+  }, "Export Laporan (", periodLabel, " · ", memberLabel, ")"), /*#__PURE__*/React.createElement("button", {
+    className: "kk-export-opt",
+    onClick: exportExcel
+  }, /*#__PURE__*/React.createElement(Ic, {
+    name: "FileSpreadsheet",
+    size: 18
+  }), " ", /*#__PURE__*/React.createElement("span", null, "Excel (.xlsx)"), /*#__PURE__*/React.createElement(Ic, {
+    name: "ChevronRight",
+    size: 16
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "kk-export-opt",
+    onClick: exportPDF
+  }, /*#__PURE__*/React.createElement(Ic, {
+    name: "FileDown",
+    size: 18
+  }), " ", /*#__PURE__*/React.createElement("span", null, "PDF (cetak / simpan)"), /*#__PURE__*/React.createElement(Ic, {
+    name: "ChevronRight",
+    size: 16
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "kk-export-opt",
+    onClick: exportCSV
+  }, /*#__PURE__*/React.createElement(Ic, {
+    name: "FileText",
+    size: 18
+  }), " ", /*#__PURE__*/React.createElement("span", null, "CSV"), /*#__PURE__*/React.createElement(Ic, {
+    name: "ChevronRight",
+    size: 16
+  })))));
 }
-
-/* ============================= BUDGET ============================= */
-
 function BudgetView({
   data,
-  currentUser,
   onUpsert,
   onDelete
 }) {
@@ -4149,7 +4097,7 @@ function BudgetView({
   const monthBudgets = budgets.filter(b => b.month === now.getMonth() && b.year === now.getFullYear());
   const usedCatIds = new Set(monthBudgets.map(b => b.categoryId));
   const availableCats = expenseCats.filter(c => !usedCatIds.has(c.id) || editing?.categoryId === c.id);
-  const monthTx = transactionsForUser(transactions, currentUser).filter(t => {
+  const monthTx = transactions.filter(t => {
     const d = new Date(t.date + "T00:00:00");
     return t.type === "pengeluaran" && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
@@ -4369,14 +4317,12 @@ function NotifikasiView({
   budgets,
   categories,
   transactions,
-  currentUser,
   onBack,
   onChange
 }) {
   const now = new Date();
-  const userTransactions = transactionsForUser(transactions, currentUser);
-  const todayTx = userTransactions.some(t => t.date === todayISO());
-  const monthTx = userTransactions.filter(t => {
+  const todayTx = transactions.some(t => t.date === todayISO());
+  const monthTx = transactions.filter(t => {
     const d = new Date(t.date + "T00:00:00");
     return t.type === "pengeluaran" && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   });
@@ -4401,7 +4347,7 @@ function NotifikasiView({
     const cicilanCat = categories.find(c => c.name.toLowerCase().includes("cicilan"));
     const tagihanCat = categories.find(c => c.name.toLowerCase().includes("tagihan"));
     [cicilanCat, tagihanCat].filter(Boolean).forEach(cat => {
-      const paid = userTransactions.some(t => t.categoryId === cat.id && new Date(t.date + "T00:00:00").getMonth() === now.getMonth() && new Date(t.date + "T00:00:00").getFullYear() === now.getFullYear());
+      const paid = transactions.some(t => t.categoryId === cat.id && new Date(t.date + "T00:00:00").getMonth() === now.getMonth() && new Date(t.date + "T00:00:00").getFullYear() === now.getFullYear());
       if (!paid) reminders.push({
         icon: "📅",
         text: `Belum ada catatan pembayaran untuk ${cat.name} bulan ini.`
@@ -4409,7 +4355,7 @@ function NotifikasiView({
     });
   }
   if (notifSettings.notifRingkasan) {
-    const income = userTransactions.filter(t => t.type === "pendapatan" && new Date(t.date + "T00:00:00").getMonth() === now.getMonth() && new Date(t.date + "T00:00:00").getFullYear() === now.getFullYear()).reduce((s, t) => s + t.amount, 0);
+    const income = transactions.filter(t => t.type === "pendapatan" && new Date(t.date + "T00:00:00").getMonth() === now.getMonth() && new Date(t.date + "T00:00:00").getFullYear() === now.getFullYear()).reduce((s, t) => s + t.amount, 0);
     const expense = monthTx.reduce((s, t) => s + t.amount, 0);
     reminders.push({
       icon: "📊",
